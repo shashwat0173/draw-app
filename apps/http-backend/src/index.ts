@@ -1,7 +1,8 @@
 import express from "express";
 import { authMiddleware } from "./middleware";
-import { hashPassword } from "./utils";
+import { hashPassword, comparePassword } from "./utils";
 import { prismaClient } from "@repo/db/client";
+import jwt from "jsonwebtoken";
 
 import {
   CreateUserSchema,
@@ -41,22 +42,47 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-app.post("/signin", (req, res) => {
-  const data = SigninSchema.safeParse(req.body);
-  if (!data.success) {
-    return res.json({
+app.post("/signin", async (req, res) => {
+  const parsedData = SigninSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    res.json({
       message: "Incorrect inputs",
     });
+    return;
   }
-});
 
-app.post("/room", authMiddleware, (req, res) => {
-  const data = CreateRoomSchema.safeParse(req.body);
-  if (!data.success) {
-    return res.json({
-      message: "Incorrect inputs",
+  const user = await prismaClient.user.findFirst({
+    where: {
+      email: parsedData.data.username,
+    },
+  });
+
+  if (!user) {
+    res.status(403).json({
+      message: "Sign up first",
     });
+    return;
   }
-});
+  const isPasswordCorrect = comparePassword(
+    user?.password as string,
+    parsedData.data.password
+  );
 
-app.listen(3001);
+  if (!isPasswordCorrect) {
+    res.status(403).json({
+      message: "Incorrect password",
+    });
+    return;
+  }
+
+  const token = jwt.sign(
+    {
+      userId: user?.id,
+    },
+    process.env.JWT_SECRET as string
+  );
+
+  res.json({
+    token,
+  });
+});
