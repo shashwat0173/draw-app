@@ -14,6 +14,8 @@ import dotenv from "dotenv";
 dotenv.config();
 const app = express();
 
+app.use(express.json());
+
 app.post("/signup", async (req, res) => {
   const parsedData = CreateUserSchema.safeParse(req.body);
   if (!parsedData.success) {
@@ -85,4 +87,30 @@ app.post("/signin", async (req, res) => {
   res.json({
     token,
   });
+});
+
+app.post("/room", authMiddleware, async (req, res) => {
+  const parsedData = CreateRoomSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    return res.json({
+      message: "Incorrect inputs",
+    });
+  }
+  const userId = req.userId as string;
+  try {
+    const room = await prismaClient.room.create({
+      data: {
+        slug: parsedData.data.name,
+        adminId: userId,
+      },
+    });
+
+    res.json({
+      roomId: room.id,
+    });
+  } catch (e) {
+    res.status(411).json({
+      message: "Room already exists with this name",
+    });
+  }
 });
