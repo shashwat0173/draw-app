@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "./middleware";
+import { prismaClient } from "@repo/db/client";
 import {
   CreateUserSchema,
   SigninSchema,
